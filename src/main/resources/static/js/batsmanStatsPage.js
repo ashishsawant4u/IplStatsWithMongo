@@ -1,44 +1,63 @@
 var recentFormChart;
-
+var PAGE_SIZE;
+var PLAYER_NAME;
 $( document ).ready(function() {
 	
 	
 	if ($("body").hasClass("bat-stats-page"))
 	{
 		
+		
 		$( "#batsmanNameText" ).autocomplete({
 		  	minLength : 2,
 		  	source : searchPlayerNameurl,
 		  	select: function( event, ui ) {
+				  PAGE_SIZE = Number($('#nosOfInnText').val());
 				  console.log(ui.item.value);
-				  getBatsmanRecentForm(ui.item.value).then(result => {
-										           
+				  PLAYER_NAME = ui.item.value;
+				  
+				  getRecentForm(PLAYER_NAME);
+				  getScoreRange(PLAYER_NAME);
+				  getBatsmanCommonStats(PLAYER_NAME);
+			  }
+		});
+		
+		$("#nosOfInnText" ).on( "change", function() {
+		   	PLAYER_NAME = $( "#batsmanNameText" ).val();
+		   	PAGE_SIZE = Number($('#nosOfInnText').val());
+		   	getRecentForm(PLAYER_NAME);
+		   	getScoreRange(PLAYER_NAME);
+			getBatsmanCommonStats(PLAYER_NAME);
+		});
+	}
+	
+});
+
+function getRecentForm(playerName)
+{
+	getBatsmanRecentForm(playerName).then(result => {
+										      $("#batRecentFormUl" ).click();
 										      $("#batRecentFormUl").empty();
-										      for(entry in result.slice(0, 9))
+										      $(".inningscount").text(PAGE_SIZE);
+										      for(entry in result.slice(0, 10))
 											  {
 												  let record = result[Number(entry)];
-												  let runs = '<span class="me-1">'+record.batsmanScore+'</span>';
-												  let balls = '('+record.ballsFaced+')';
-												  let strikeRate = '<br> SR : '+record.strikeRate.toFixed(2);
+												  let runs = '<span class="me-1 ">'+record.batsmanScore+'</span>';
+												  let balls = '<span>('+record.ballsFaced+')</span>';
+												  let strikeRate = '<br><span class="text-blue1"> SR : '+record.strikeRate.toFixed(2)+'</span>';
 												  let content = runs + balls + strikeRate;
-												  $('<li class="fs-4 text-center p-3 list-group-item flex-fill">'+content+'</li> ').appendTo("#batRecentFormUl");
+												  $('<li class="fs-5 text-center p-3 list-group-item flex-fill bg-dark text-white border border-2">'+content+'</li> ').appendTo("#batRecentFormUl");
 											  	  
 											  }
-											  
+											  $('#recentFormRunsSection').removeClass('d-none');
+											   
 											  recentformChart(result);  
 									          
 									  }).catch(error => {
 											console.log('error while recent form ',error);
 							          		reject();
 							          });
-				  
-				  
-				  getScoreRange(ui.item.value);
-			  }
-		});
-	}
-	
-});
+}
 
 function getBatsmanRecentForm(playerName)
 {
@@ -47,7 +66,7 @@ function getBatsmanRecentForm(playerName)
 	let request = {
 		playerName : playerName,
 		pageNumber : 1,
-		pageSize :  20
+		pageSize :  PAGE_SIZE
 	}
 	
 	$.ajax({
@@ -89,24 +108,60 @@ function recentformChart(result)
 		prevDate = formattedDate;
 	 }
 	runsData =  runsData.reverse();
-	 
-	recentFormChart = new Chart(
-    document.getElementById('myChart'),
-    {
+	
+	const plugin = {
+		  id: 'customCanvasBackgroundColor',
+		  beforeDraw: (chart, args, options) => {
+		    const {ctx} = chart;
+		    ctx.save();
+		    ctx.globalCompositeOperation = 'destination-over';
+		    ctx.fillStyle = options.color || '#000000';
+		    ctx.fillRect(0, 0, chart.width, chart.height);
+		    ctx.restore();
+		  }
+	};
+	
+	let chartConfig = {
       type: 'line',
       data: {
         labels: runsData.map(row => row.label),
         datasets: [
           {
-			borderColor: "red",  
             label: 'runs',
-            data: runsData.map(row => row.y)
+            data: runsData.map(row => row.y),
+            borderColor:'#ffffff',
+            pointStyle:'triangle',
+            pointBackgroundColor:'#22bdd0',
+            pointRadius:10,
+            backgroundColor:'#22bdd0',
           }
         ]
-      }
-    }
-  );
-	
+      },
+      options: {
+	    responsive: true,
+	    scales: {
+	      y: {
+	        ticks: { color: '#ffffff', beginAtZero: true }
+	      },
+	      x: {
+	        ticks: { color: '#ffffff', beginAtZero: true }
+	      }
+	    }
+	  },
+  	  plugins: [plugin],
+    };
+    
+    
+    
+    
+    let chartContext = document.getElementById('recentFormChart').getContext('2d');
+    
+	 
+	recentFormChart = new Chart( chartContext,chartConfig);
+	recentFormChart.update();
+	$('#recentFormChartAccordian').removeClass('d-none');
+	$('#recentFormChartSection').removeClass('d-none');
+	$(".inningscount").text(PAGE_SIZE);
 }
 
 function getScoreRange(playerName)
@@ -122,7 +177,10 @@ function getScoreRange(playerName)
 			        'dataType' : "json",
 			        'data' : function () {
 					    return JSON.stringify({
-						  	"playerName": playerName
+						  	"playerName": playerName,
+						  	"pageNumber" : 1,
+							"pageSize" :  PAGE_SIZE
+						  	
 						});
 					},
 			    },   
@@ -147,8 +205,42 @@ function getScoreRange(playerName)
 			});
 			
 			$('#scoreRangeDataTable').on('xhr.dt', function ( e, settings, json, xhr ) {
-       						$('#scoreRangeDataTable').removeClass('d-none');
+       						$('#scoreRangeSection').removeClass('d-none');
    			});
+}
+
+function getBatsmanCommonStats(playerName)
+{
+	
+	
+	let request = {
+		playerName : playerName,
+		pageNumber : 1,
+		pageSize :  PAGE_SIZE
+	}
+	
+	$.ajax({
+			       type: "POST",
+			       contentType : 'application/json;',
+			       dataType : 'json',
+			       url: batsmanCommonStatseUrl,
+	      		   data: JSON.stringify(request),
+			       success :function(result) {
+			       		console.log('success ',result);
+			       		$('#totalInnings').text(result.totalInnings);
+			       		$('#totalFours').text(result.totalFours);
+			       		$('#totalSixes').text(result.totalSixes);
+			       		$('#totalRuns').text(result.totalRuns);
+			       		$('#avgRuns').text(result.avgRuns.toFixed(2));
+			       		$('#avgStrikeRate').text(result.avgStrikeRate.toFixed(2));
+			       		$('#commonStatsSection').removeClass('d-none');
+			       },
+			       error :function(err) {
+			       		console.log('error ',err);
+			       }
+			});
+			
+	
 }
 
 

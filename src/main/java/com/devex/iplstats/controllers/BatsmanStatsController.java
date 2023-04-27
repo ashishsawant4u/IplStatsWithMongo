@@ -16,6 +16,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.AccumulatorOperators;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.BucketOperation;
+import org.springframework.data.mongodb.core.aggregation.CountOperation;
 import org.springframework.data.mongodb.core.aggregation.GroupOperation;
 import org.springframework.data.mongodb.core.aggregation.LimitOperation;
 import org.springframework.data.mongodb.core.aggregation.LookupOperation;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.devex.iplstats.dto.BatsmanCommonStatsDTO;
 import com.devex.iplstats.dto.BatsmanRecentFormDTO;
 import com.devex.iplstats.dto.BatsmanScoreRangeDTO;
 import com.devex.iplstats.dto.OldScoreboardDTO;
@@ -110,17 +112,19 @@ public class BatsmanStatsController
 		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
 		 
 		 
+		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * PAGE_SIZE);
+		 
+		 LimitOperation limit = new LimitOperation(PAGE_SIZE);
+		 
 		 ProjectionOperation projection =  Aggregation.project("batsman","batsmanScore","ballsFaced")
 		 		.andExpression("(batsmanScore / ballsFaced) * 100 ").as("strikeRate")
 		 		.and("matchDetails.matchTitle").arrayElementAt(0).as("match")
 		 		.and("matchDetails.matchDate").arrayElementAt(0).as("matchDate")
 		 		.andExclude("_id");
 		 
-		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * PAGE_SIZE);
+		
 		 
-		 LimitOperation limit = new LimitOperation(PAGE_SIZE);
-		 
-		 Aggregation recentFormAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,sort,projection,skip,limit);
+		 Aggregation recentFormAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,sort,skip,limit,projection);
 		 
 		 List<BatsmanRecentFormDTO> recentForm = mongoTemplate.aggregate(recentFormAggr, "OldScoreboard" , BatsmanRecentFormDTO.class).getMappedResults();
 		 
@@ -132,28 +136,25 @@ public class BatsmanStatsController
 	 public Map<String, List<BatsmanScoreRangeDTO>> batsmanScoreRange(@RequestBody  RequestDTO request)
 	 {
 		 
-		 
-		 int totalInnings = oldScoreboardRepository.countByBatsmanIgnoreCase(request.getPlayerName());
-		 
-		 if(totalInnings == 0)
-		 {
-			 List<OldScoreboardDTO> innings = oldScoreboardRepository.findByBatsmanContainsIgnoreCase(request.getPlayerName());
-			 boolean isCaptain = innings.stream().anyMatch(i->i.getBatsman().contains("(c)"));
-			 
-			 if(isCaptain)
-			 {
-				 totalInnings = innings.size();
-			 }
-		 }
+		 int totalInnings = totalInnings(request);
 		 
 		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i")
 					.and("ballsFaced").ne(0));
+		 
 
 		 LookupOperation scorecardJoinMatchInfo = LookupOperation.newLookup()
 														.from("MatchInfo")
 														.localField("matchInfo")
 														.foreignField("_id")
 														.as("matchDetails");
+		 
+		 
+		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		 
+		 
+		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
+		 
+		 LimitOperation limit = new LimitOperation(request.getPageSize());
 		 
 		 List<Integer> range = new ArrayList<>();
 		 range.add(0);
@@ -172,7 +173,7 @@ public class BatsmanStatsController
 		 ProjectionOperation projection =  Aggregation.project("_id","count")
 				 										.andExpression("(count/"+totalInnings+") * 100").as("weight");
 		 
-		 Aggregation scoreRangeAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,bucket,projection);
+		 Aggregation scoreRangeAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,sort,skip,limit,bucket,projection);
 		 
 		 List<BatsmanScoreRangeDTO> scoreRange = mongoTemplate.aggregate(scoreRangeAggr, "OldScoreboard" , BatsmanScoreRangeDTO.class).getMappedResults();
 	
@@ -199,4 +200,86 @@ public class BatsmanStatsController
 		 return data;
 	 }
 	 
+	 public int totalInnings(RequestDTO request)
+	 {
+		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i"));
+		 
+		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		 
+		 
+		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
+		 
+		 LimitOperation limit = new LimitOperation(request.getPageSize());
+		 
+		 CountOperation count = Aggregation.count().as("totalInnings");
+		 
+		 Aggregation innAggr = Aggregation.newAggregation(match,sort,skip,limit,count);
+
+		 List<BatsmanCommonStatsDTO> result = mongoTemplate.aggregate(innAggr, "OldScoreboard",BatsmanCommonStatsDTO.class).getMappedResults();
+		 
+		 return result.stream().findFirst().get().getTotalInnings();
+	 }
+	 
+	 public BatsmanCommonStatsDTO runStats(RequestDTO request)
+	 {
+		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i"));
+		 
+		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		 
+		 
+		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
+		 
+		 LimitOperation limit = new LimitOperation(request.getPageSize());
+		 
+		 GroupOperation group = Aggregation.group("b")
+				 							.sum("fours").as("totalFours")
+				 							.sum("sixes").as("totalSixes")
+				 							.sum("batsmanScore").as("totalRuns")
+				 							.avg("batsmanScore").as("avgRuns");
+		 
+		 Aggregation innAggr = Aggregation.newAggregation(match,sort,skip,limit,group);
+
+		 List<BatsmanCommonStatsDTO> result = mongoTemplate.aggregate(innAggr, "OldScoreboard",BatsmanCommonStatsDTO.class).getMappedResults();
+		 
+		 return result.stream().findFirst().get();
+	 }
+	 
+	 public double avgStrikeRate(RequestDTO request)
+	 {
+		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i"));
+		 
+		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		 
+		 
+		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
+		 
+		 LimitOperation limit = new LimitOperation(request.getPageSize());
+		 
+		 ProjectionOperation projection =  Aggregation.project("batsman","batsmanScore","ballsFaced")
+			 		.andExpression("(batsmanScore / ballsFaced) * 100 ").as("strikeRate")
+			 		.andExclude("_id");
+		 
+		 GroupOperation group = Aggregation.group("batsman")
+					.avg("strikeRate").as("avgStrikeRate");
+		 
+		 
+		 Aggregation srAggr = Aggregation.newAggregation(match,sort,skip,limit,projection,group);
+
+		 List<BatsmanCommonStatsDTO> result = mongoTemplate.aggregate(srAggr, "OldScoreboard",BatsmanCommonStatsDTO.class).getMappedResults();
+		 
+		 return result.stream().findFirst().get().getAvgStrikeRate();
+		 
+	 }
+	 
+	 @PostMapping("/commonstats")
+	 @ResponseBody
+	 public BatsmanCommonStatsDTO commonStats(@RequestBody  RequestDTO request)
+	 {
+		 BatsmanCommonStatsDTO data = runStats(request);
+		 
+		 data.setTotalInnings(totalInnings(request));
+		 data.setAvgStrikeRate(avgStrikeRate(request));
+		 
+		 return data;
+	 }
 }

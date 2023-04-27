@@ -2,3 +2,14 @@ body
 {
 	font-family: 'EB Garamond', serif;
 }
+.line-with-text
+{
+   line-height: 0.1em;
+}
+.accordion-button{
+    display:block;
+}
+.text-blue1
+{
+	color: #22bdd0! important;
+}
