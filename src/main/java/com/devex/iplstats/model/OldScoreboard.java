@@ -10,8 +10,10 @@ import org.springframework.data.mongodb.core.mapping.MongoId;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
+import lombok.Builder;
 import lombok.Data;
 
+@Builder
 @Data
 @Document(collection = "OldScoreboard")
 public class OldScoreboard 

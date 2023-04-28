@@ -2,6 +2,7 @@ var recentFormChart;
 var PAGE_SIZE;
 var PLAYER_NAME;
 var INNING = 0;
+var RESULT_COUNT;
 $( document ).ready(function() {
 	
 	
@@ -63,6 +64,7 @@ function getRecentForm(playerName)
 										      $("#batRecentFormUl").empty();
 										      $(".inningscount").text(PAGE_SIZE);
 										      
+										      RESULT_COUNT = result.length;
 										      (result.length < 10) ? $('#limitedInnCount').text(result.length) : $('#limitedInnCount').text(10);
 										      
 										      
@@ -199,7 +201,7 @@ function recentformChart(result)
 	recentFormChart.update();
 	$('#recentFormChartAccordian').removeClass('d-none');
 	$('#recentFormChartSection').removeClass('d-none');
-	$(".inningscount").text(PAGE_SIZE);
+	(RESULT_COUNT < 10) ? $('.inningscount').text(result.length) : $('.inningscount').text(10);
 }
 
 function getScoreRange(playerName)
