@@ -223,7 +223,7 @@ function getScoreRange(playerName)
 						});
 					},
 			    },   
-				ordering: false,
+				ordering: true,
 				info:false,
 				paging:false,
 				searching:false,
@@ -234,7 +234,21 @@ function getScoreRange(playerName)
 		                    return data.toFixed(2)+' %';
 		                },
 						targets: [2]
-				  }
+				     },
+				     {
+						"render": function ( data, type, row ) {
+							
+							let rangeArr = data.split('-');
+							if(rangeArr.length > 1 && Number(rangeArr[0]) !== 0)
+							{
+								let ex = Number(rangeArr[1])-1;
+								return rangeArr[0] +'-'+ex;
+							}
+							
+		                    return data;
+		                },
+						targets: [0]
+				     }
 				],
 				columns: [
 					  { data: '_id' },
