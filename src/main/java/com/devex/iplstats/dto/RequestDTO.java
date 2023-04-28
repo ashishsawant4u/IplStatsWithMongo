@@ -10,4 +10,6 @@ public class RequestDTO
 	private int pageNumber;
 	
 	private int pageSize = 5;
+	
+	private int inning;
 }

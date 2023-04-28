@@ -1,7 +1,6 @@
 package com.devex.iplstats.controllers;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +12,6 @@ import javax.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.AccumulatorOperators;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.BucketOperation;
 import org.springframework.data.mongodb.core.aggregation.CountOperation;
@@ -28,7 +26,6 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,7 +35,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.devex.iplstats.dto.BatsmanCommonStatsDTO;
 import com.devex.iplstats.dto.BatsmanRecentFormDTO;
 import com.devex.iplstats.dto.BatsmanScoreRangeDTO;
-import com.devex.iplstats.dto.OldScoreboardDTO;
 import com.devex.iplstats.dto.PlayerSearchNameDTO;
 import com.devex.iplstats.dto.RequestDTO;
 import com.devex.iplstats.model.repository.OldScoreboardRepository;
@@ -100,8 +96,7 @@ public class BatsmanStatsController
 		 
 		 //MatchOperation match = new MatchOperation(TextCriteria.forDefaultLanguage().matching("\""+request.getPlayerName()+"\""));
 		 
-		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i")
-				 									.and("ballsFaced").ne(0));
+		 MatchOperation match = new MatchOperation(matchCriteria(request));
 		 
 		 LookupOperation scorecardJoinMatchInfo = LookupOperation.newLookup()
 					.from("MatchInfo")
@@ -130,6 +125,21 @@ public class BatsmanStatsController
 		 
 		 return recentForm.stream().limit(PAGE_SIZE).collect(Collectors.toList());
 	 }
+
+
+
+
+	private Criteria matchCriteria(RequestDTO request) 
+	{
+		Criteria criteria = Criteria.where("batsman").regex("^"+request.getPlayerName(), "i")
+					.and("ballsFaced").ne(0);
+		 
+		 if(request.getInning() > 0)
+		 {
+			 criteria.and("inning").is(request.getInning());
+		 }
+		return criteria;
+	}
 	 
 	 @PostMapping("/scoreRange")
 	 @ResponseBody
@@ -138,8 +148,7 @@ public class BatsmanStatsController
 		 
 		 int totalInnings = totalInnings(request);
 		 
-		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i")
-					.and("ballsFaced").ne(0));
+		 MatchOperation match = new MatchOperation(matchCriteria(request));
 		 
 
 		 LookupOperation scorecardJoinMatchInfo = LookupOperation.newLookup()
@@ -202,18 +211,26 @@ public class BatsmanStatsController
 	 
 	 public int totalInnings(RequestDTO request)
 	 {
-		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i"));
+		 int PAGE_SIZE  = request.getPageSize();
 		 
-		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
-		 
-		 
-		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
-		 
-		 LimitOperation limit = new LimitOperation(request.getPageSize());
+		 MatchOperation match = new MatchOperation(matchCriteria(request));
+
+		LookupOperation scorecardJoinMatchInfo = LookupOperation.newLookup()
+		.from("MatchInfo")
+		.localField("matchInfo")
+		.foreignField("_id")
+		.as("matchDetails");
+		
+		SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		
+		
+		SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * PAGE_SIZE);
+		
+		LimitOperation limit = new LimitOperation(PAGE_SIZE);
 		 
 		 CountOperation count = Aggregation.count().as("totalInnings");
 		 
-		 Aggregation innAggr = Aggregation.newAggregation(match,sort,skip,limit,count);
+		 Aggregation innAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,sort,skip,limit,count);
 
 		 List<BatsmanCommonStatsDTO> result = mongoTemplate.aggregate(innAggr, "OldScoreboard",BatsmanCommonStatsDTO.class).getMappedResults();
 		 
@@ -222,22 +239,30 @@ public class BatsmanStatsController
 	 
 	 public BatsmanCommonStatsDTO runStats(RequestDTO request)
 	 {
-		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i"));
+		 int PAGE_SIZE  = request.getPageSize();
 		 
-		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		 MatchOperation match = new MatchOperation(matchCriteria(request));
+
+		LookupOperation scorecardJoinMatchInfo = LookupOperation.newLookup()
+		.from("MatchInfo")
+		.localField("matchInfo")
+		.foreignField("_id")
+		.as("matchDetails");
+		
+		SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		
+		
+		SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * PAGE_SIZE);
+		
+		LimitOperation limit = new LimitOperation(PAGE_SIZE);
 		 
-		 
-		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
-		 
-		 LimitOperation limit = new LimitOperation(request.getPageSize());
-		 
-		 GroupOperation group = Aggregation.group("b")
+		GroupOperation group = Aggregation.group()
 				 							.sum("fours").as("totalFours")
 				 							.sum("sixes").as("totalSixes")
 				 							.sum("batsmanScore").as("totalRuns")
 				 							.avg("batsmanScore").as("avgRuns");
 		 
-		 Aggregation innAggr = Aggregation.newAggregation(match,sort,skip,limit,group);
+		 Aggregation innAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,sort,skip,limit,group);
 
 		 List<BatsmanCommonStatsDTO> result = mongoTemplate.aggregate(innAggr, "OldScoreboard",BatsmanCommonStatsDTO.class).getMappedResults();
 		 
@@ -246,14 +271,22 @@ public class BatsmanStatsController
 	 
 	 public double avgStrikeRate(RequestDTO request)
 	 {
-		 MatchOperation match = new MatchOperation(Criteria.where("batsman").regex("^"+request.getPlayerName(), "i"));
+		 int PAGE_SIZE  = request.getPageSize();
 		 
-		 SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
-		 
-		 
-		 SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * request.getPageSize());
-		 
-		 LimitOperation limit = new LimitOperation(request.getPageSize());
+		 MatchOperation match = new MatchOperation(matchCriteria(request));
+
+		LookupOperation scorecardJoinMatchInfo = LookupOperation.newLookup()
+		.from("MatchInfo")
+		.localField("matchInfo")
+		.foreignField("_id")
+		.as("matchDetails");
+		
+		SortOperation sort = new SortOperation(Sort.by("matchDetails.season").descending().and(Sort.by("matchId").descending()));
+		
+		
+		SkipOperation skip  = new SkipOperation((request.getPageNumber()-1) * PAGE_SIZE);
+		
+		LimitOperation limit = new LimitOperation(PAGE_SIZE);
 		 
 		 ProjectionOperation projection =  Aggregation.project("batsman","batsmanScore","ballsFaced")
 			 		.andExpression("(batsmanScore / ballsFaced) * 100 ").as("strikeRate")
@@ -263,7 +296,7 @@ public class BatsmanStatsController
 					.avg("strikeRate").as("avgStrikeRate");
 		 
 		 
-		 Aggregation srAggr = Aggregation.newAggregation(match,sort,skip,limit,projection,group);
+		 Aggregation srAggr = Aggregation.newAggregation(match,scorecardJoinMatchInfo,sort,skip,limit,projection,group);
 
 		 List<BatsmanCommonStatsDTO> result = mongoTemplate.aggregate(srAggr, "OldScoreboard",BatsmanCommonStatsDTO.class).getMappedResults();
 		 

@@ -10,10 +10,10 @@
 
 
 <div class="p-2 d-none" id="recentFormRunsSection">
-<!-- <span class="fs-4">Recent Form
-	<span class="fs-5 fst-italic text-muted">(last <span class="inningscount"></span> innings)</span>
-</span> -->
-<h4>Recent 10 Innings</h4>
+<span class="fs-4">Recent Form
+	<span class="fs-5 fst-italic text-muted">(last <span id="limitedInnCount"></span> innings)</span>
+</span>
+
 <ul id="batRecentFormUl" class="list-group list-group-horizontal">
   
 </ul>
