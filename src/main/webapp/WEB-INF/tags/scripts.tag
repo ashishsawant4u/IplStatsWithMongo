@@ -29,4 +29,5 @@
 <link href="${contextPath}/css/style.css" rel="stylesheet">
 <script src="${contextPath}/js/batsmanStatsPage.js"></script>
 
+
 <tags:javascriptVariables />

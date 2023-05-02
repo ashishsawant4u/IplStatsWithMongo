@@ -8,6 +8,7 @@ $( document ).ready(function() {
 	
 	if ($("body").hasClass("bat-stats-page"))
 	{
+
 		
 		
 		$( "#batsmanNameText" ).autocomplete({
@@ -178,7 +179,8 @@ function recentformChart(result)
         ]
       },
       options: {
-	    responsive: true,
+	    //responsive: true,
+	    maintainAspectRatio: false,
 	    scales: {
 	      y: {
 	        ticks: { color: '#ffffff', beginAtZero: true }
@@ -201,7 +203,8 @@ function recentformChart(result)
 	recentFormChart.update();
 	$('#recentFormChartAccordian').removeClass('d-none');
 	$('#recentFormChartSection').removeClass('d-none');
-	(RESULT_COUNT < 10) ? $('.inningscount').text(result.length) : $('.inningscount').text(10);
+	//(RESULT_COUNT < 10) ? $('.inningscount').text(result.length) : $('.inningscount').text(10);
+	$('.inningscount').text(result.length);
 }
 
 function getScoreRange(playerName)
@@ -225,7 +228,7 @@ function getScoreRange(playerName)
 						});
 					},
 			    },   
-				ordering: true,
+				ordering: false,
 				info:false,
 				paging:false,
 				searching:false,

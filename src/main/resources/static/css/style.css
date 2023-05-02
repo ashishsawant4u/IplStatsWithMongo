@@ -13,3 +13,32 @@ body
 {
 	color: #22bdd0! important;
 }
+.top-header
+{
+	background: rgb(9,9,9);
+	background: linear-gradient(90deg, rgba(9,9,9,0.9192270658263305) 46%, rgba(34,189,208,1) 100%, rgba(255,255,255,1) 100%);
+}
+.cursor-pointer
+{
+	cursor: pointer! important;
+}
+
+
+.form-control:focus 
+{
+  	box-shadow: none;
+    border-color: rgba(0,0,0,.125);
+}
+
+
+.chart-container 
+{
+  position: relative;
+  margin: auto;
+  height: 50vh;
+  width: 90vw;
+}
+
+@media (max-width: 786px){
+	
+}

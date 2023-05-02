@@ -23,8 +23,13 @@
 
 
 <div class="p-2 d-none mt-2" id="recentFormChartSection">
-<span class="fs-4">Recent Performance Graph
+<span class="fs-4">Performance Graph
 	<span class="fs-5 fst-italic text-muted">(last <span class="inningscount"></span> innings)</span>
 </span>
-	<canvas id="recentFormChart" height="100" class="m-3"></canvas>
+	
+	
+<div class="chart-container">	
+	<canvas id="recentFormChart"></canvas>
+</div>
+
 </div>

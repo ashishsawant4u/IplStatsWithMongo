@@ -14,7 +14,7 @@
 	<span class="fs-5 fst-italic text-muted">(last <span id="limitedInnCount"></span> innings)</span>
 </span>
 
-<ul id="batRecentFormUl" class="list-group list-group-horizontal">
+<ul id="batRecentFormUl" class="list-group list-group-horizontal cursor-pointer overflow-auto">
   
 </ul>
 
