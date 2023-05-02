@@ -183,10 +183,12 @@ function recentformChart(result)
 	    maintainAspectRatio: false,
 	    scales: {
 	      y: {
-	        ticks: { color: '#ffffff', beginAtZero: true }
+	        ticks: { color: '#ffffff', beginAtZero: true },
+	        grid: { color: '#1e1f21' }
 	      },
 	      x: {
-	        ticks: { color: '#ffffff', beginAtZero: true }
+	        ticks: { color: '#ffffff', beginAtZero: true },
+	        grid: { color: '#1e1f21' }
 	      }
 	    }
 	  },

@@ -113,8 +113,8 @@ public class EspnScrapperController
 		
 		
 		
-		System.out.println("============================================================");
-		System.out.println(matchInfo.getMatchTitle());
+		log.info("============================================================");
+		log.info(matchInfo.getMatchTitle());
 		
 		matchInfo.setScores(scores);
 		return matchInfo;
@@ -142,27 +142,38 @@ public class EspnScrapperController
 	
 	public String getPageContent(String Url)
 	{
-		try 
+		int responseCode = 0;
+		int retryAttempt = 0;
+		
+		while(retryAttempt < 3)
 		{
-			URL obj = new URL(Url);
-			HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-			// optional request header
-			con.setRequestProperty("User-Agent", "Mozilla/5.0");
-			int responseCode = con.getResponseCode();
-			System.out.println("Response code: " + responseCode);
-			BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-			String inputLine;
-			StringBuilder response = new StringBuilder();
-			while ((inputLine = in.readLine()) != null) {
-			response.append(inputLine);
+			try 
+			{
+				URL obj = new URL(Url);
+				HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+				// optional request header
+				con.setRequestProperty("User-Agent", "Mozilla/5.0");
+				responseCode = con.getResponseCode();
+				log.info("Response code: " + responseCode);
+				BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+				String inputLine;
+				StringBuilder response = new StringBuilder();
+				while ((inputLine = in.readLine()) != null) {
+				response.append(inputLine);
+				}
+				in.close();
+				String html = response.toString();
+				return html;
+			} 
+			catch (Exception e) 
+			{
+				log.error(e.getMessage());
+				
+				  if(responseCode != 200) 
+				  {     
+					  retryAttempt++;
+			      }  
 			}
-			in.close();
-			String html = response.toString();
-			return html;
-		} 
-		catch (Exception e) 
-		{
-			log.error(e.getMessage());
 		}
 		
 		return "Nothing Found";
