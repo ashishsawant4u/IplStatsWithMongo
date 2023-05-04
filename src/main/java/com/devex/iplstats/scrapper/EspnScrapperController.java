@@ -6,12 +6,15 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,30 +33,43 @@ public class EspnScrapperController
 	@Autowired
 	private OldScoreboardController oldScoreboardController;
 	
+	@Autowired
+	private MongoTemplate mongoTemplate;
+	
 	public String TOURNAMENT_URL = "https://www.espncricinfo.com/series/indian-premier-league-2023-1345038/match-schedule-fixtures-and-results";
 	
 	public String TOURNAMENT_SEASON_URL_PATTERN = "indian-premier-league-2023-1345038";
 	
 	@RequestMapping("/scrap")
 	@ResponseBody
-	public List<String> scrapIPL()
-	{
+	public Set<String> scrapIPL()
+	{		
+		List<String> existingMatchIds = mongoTemplate.query(MatchInfo.class)  
+		  .distinct("matchId")  
+		  .as(String.class) 
+		  .all();  
+		
 		String iplSeasonPage = getPageContent(TOURNAMENT_URL);
 		
-		List<String> allMatchUrls = getAllMatchUrls(iplSeasonPage);
+		Set<String> allMatchUrls = getAllMatchUrls(iplSeasonPage);
 		
-		getMatchDetails(allMatchUrls);
+		getMatchDetails(allMatchUrls,existingMatchIds);
 		
 		return allMatchUrls;
 	}
 	
-	private void getMatchDetails(List<String> allMatchUrls)
+	private void getMatchDetails(Set<String> allMatchUrls,List<String> existingMatchIds)
 	{
 		for (String link : allMatchUrls) 
 		{
-			MatchInfo matchInfo = saveMatch(link);
-			
-			oldScoreboardController.save(matchInfo);
+			if(!existingMatchIds.contains(ESPNUtils.getMatchId(link)))
+			{
+				log.info("Fetching ==> "+link);
+				
+				MatchInfo matchInfo = saveMatch(link);
+				
+				oldScoreboardController.save(matchInfo);
+			}
 		}
 		
 	}
@@ -72,7 +88,9 @@ public class EspnScrapperController
 		List<OldScoreboard> scores = new ArrayList<>();
 		Elements tablesElement = doc.select("table.ci-scorecard-table");
 		
-		for (int tableNumber = 0; tableNumber < 2; tableNumber++) 
+		log.info("innings found ==> "+tablesElement.size());
+		
+		for (int tableNumber = 0; tableNumber < tablesElement.size(); tableNumber++) 
 		{
 			Element table1stInn =tablesElement.get(tableNumber);
 			Elements rows1stInn = table1stInn.select("tr");
@@ -82,7 +100,9 @@ public class EspnScrapperController
 			    Element row = rows1stInn.get(i);
 			    Elements cols = row.select("td");
 			    
-			    if(cols.size()==8)
+			    log.info("cols found ==> "+cols.size());
+			    
+			    if(cols.size() >= 6)
 			    {
 			    	String batsman = cols.get(0).text();
 				    String batsmanScore =  cols.get(2).text().replace("*","").trim();
@@ -90,6 +110,9 @@ public class EspnScrapperController
 				    String batStatus = cols.get(1).text().trim();
 				    String fours = cols.get(5).text().trim();
 				    String sixes = cols.get(6).text().trim();
+				    
+				   // log.info("batsman ==> "+batsman);
+				   // log.info("batsmanScore ==> "+batsmanScore);
 				    
 				    if(null!= batsman && !batsman.equals("Extras") && !batsman.equals("TOTAL")  && null!=batsmanScore)
 					{
@@ -121,7 +144,7 @@ public class EspnScrapperController
 	}
 	
 
-	private List<String> getAllMatchUrls(String iplSeasonPage) 
+	private Set<String> getAllMatchUrls(String iplSeasonPage) 
 	{
 		Document doc = Jsoup.parse(iplSeasonPage);
 		Elements links = doc.select("a[href$=\"full-scorecard\"]");
@@ -137,7 +160,7 @@ public class EspnScrapperController
 			}
 		}
 		
-		return allMatchUrls;
+		return allMatchUrls.stream().collect(Collectors.toSet());
 	}
 	
 	public String getPageContent(String Url)

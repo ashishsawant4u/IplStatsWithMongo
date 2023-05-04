@@ -14,6 +14,7 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.LookupOperation;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -83,8 +84,10 @@ public class OldScoreboardController {
 	public ResponseEntity<String> save(@RequestBody MatchInfo matchInfo)
 	{
 		
-		if(!isMatchInfoExists(matchInfo))
+		if(!isMatchInfoExists(matchInfo) && !CollectionUtils.isEmpty(matchInfo.getScores()))
 		{
+			log.info("Saving ==> "+matchInfo.getMatchId()+" records ==> "+matchInfo.getScores().size());
+			
 			MatchInfo info = matchInfoRepository.save(matchInfo);
 			
 			matchInfo.getScores().forEach(r->r.setMatchInfo(info.get_id()));
